@@ -1,284 +1,31 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for SecurityHub Findings Summary Lambda function'
+Description: 'AWS SecurityHub Findings Analyzer with Bedrock Integration'
 
 Parameters:
   SenderEmail:
     Type: String
-    Description: Email address to send findings from
-    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    Description: Email address to send findings from (must be verified in SES)
   
   RecipientEmail:
     Type: String
-    Description: Email address to receive findings
-    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
+    Description: Email address to send findings to (must be verified in SES in sandbox)
+  
   FindingsHours:
     Type: Number
-    Description: Number of hours to look back for findings
     Default: 24
+    Description: Number of hours of findings to analyze
     MinValue: 1
     MaxValue: 168
 
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda function code
+
+  LambdaCodeKey:
+    Type: String
+    Description: S3 key (path) to the Lambda function code ZIP file
+
 Resources:
-  SecurityHubFindingsFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: security-hub-findings-summary
-      Runtime: python3.12
-      Handler: index.lambda_handler
-      Timeout: 300
-      MemorySize: 256
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          SENDER_EMAIL: !Ref SenderEmail
-          RECIPIENT_EMAIL: !Ref RecipientEmail
-          BEDROCK_MODEL_ID: anthropic.claude-3-sonnet-20240229-v1:0
-          FINDINGS_HOURS: !Ref FindingsHours
-      Code:
-        ZipFile: |
-          import boto3
-          from datetime import datetime, timedelta
-          import json
-          import logging
-          import csv
-          import io
-          from email.mime.multipart import MIMEMultipart
-          from email.mime.text import MIMEText
-          from email.mime.application import MIMEApplication
-          import os
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          SENDER_EMAIL = os.environ['SENDER_EMAIL']
-          RECIPIENT_EMAIL = os.environ['RECIPIENT_EMAIL']
-          BEDROCK_MODEL_ID = os.environ['BEDROCK_MODEL_ID']
-          FINDINGS_HOURS = int(os.environ['FINDINGS_HOURS'])
-
-          def summarize_findings(findings):
-              logger.info("Summarizing findings with Anthropic Claude 3 Sonnet model")
-              bedrock = boto3.client('bedrock-runtime')
-              prompt = f"""Human: Summarize the following security findings: {json.dumps(findings, indent=2)} 
-                          Provide a concise summary highlighting the most critical issues, their potential impact, 
-                          and any patterns or trends observed. A:"""
-              try:
-                  response = bedrock.invoke_model(
-                      modelId=BEDROCK_MODEL_ID,
-                      body=json.dumps({
-                          "messages": [
-                              {"role": "user", "content": prompt}
-                          ],
-                          "anthropic_version": "bedrock-2023-05-31",
-                          "max_tokens": 1000,
-                          "temperature": 0.5,
-                          "top_p": 1,
-                      })
-                  )
-                  summary = json.loads(response['body'].read())['content'][0]['text']
-                  logger.info("Successfully generated summary")
-                  return summary.strip()
-              except Exception as e:
-                  logger.error(f"Error calling Anthropic Claude 3 Sonnet model: {str(e)}")
-                  return None
-
-          def get_findings_summary(formatted_findings):
-              summary = {}
-              for finding in formatted_findings:
-                  account_id = finding['AccountId']
-                  severity = finding['Severity']
-                  if account_id not in summary:
-                      summary[account_id] = {
-                          'CRITICAL': 0,
-                          'HIGH': 0,
-                          'MEDIUM': 0,
-                          'total': 0
-                      }
-                  summary[account_id][severity] += 1
-                  summary[account_id]['total'] += 1
-              return summary
-
-          def format_summary_html(summary):
-              total_critical = sum(acc['CRITICAL'] for acc in summary.values())
-              total_high = sum(acc['HIGH'] for acc in summary.values())
-              total_medium = sum(acc['MEDIUM'] for acc in summary.values())
-              total_findings = sum(acc['total'] for acc in summary.values())
-              
-              html = "<h2>Security Hub Findings Summary</h2>"
-              html += "<table border='1'><tr><th>Account ID</th><th>Critical</th><th>High</th><th>Medium</th><th>Total</th></tr>"
-              
-              for account_id, counts in sorted(summary.items()):
-                  html += f"<tr><td>{account_id}</td><td>{counts['CRITICAL']}</td><td>{counts['HIGH']}</td><td>{counts['MEDIUM']}</td><td>{counts['total']}</td></tr>"
-              
-              html += f"<tr><td><strong>Total</strong></td><td>{total_critical}</td><td>{total_high}</td><td>{total_medium}</td><td>{total_findings}</td></tr></table>"
-              return html
-
-          def format_summary_text(summary):
-              text = "Security Hub Findings Summary\n\n"
-              for account_id, counts in sorted(summary.items()):
-                  text += f"Account {account_id}:\n"
-                  text += f"Critical: {counts['CRITICAL']}\n"
-                  text += f"High: {counts['HIGH']}\n"
-                  text += f"Medium: {counts['MEDIUM']}\n"
-                  text += f"Total: {counts['total']}\n\n"
-              return text
-
-          def send_email_with_attachment(sender, recipient, subject, body_text, body_html, csv_content=None, file_name=None):
-              ses = boto3.client('ses')
-              msg = MIMEMultipart('mixed')
-              msg['Subject'] = subject
-              msg['From'] = sender
-              msg['To'] = recipient
-
-              msg_body = MIMEMultipart('alternative')
-              textpart = MIMEText(body_text.encode('utf-8'), 'plain', 'utf-8')
-              htmlpart = MIMEText(body_html.encode('utf-8'), 'html', 'utf-8')
-              msg_body.attach(textpart)
-              msg_body.attach(htmlpart)
-              msg.attach(msg_body)
-
-              if csv_content:
-                  att = MIMEApplication(csv_content.encode('utf-8'))
-                  att.add_header('Content-Disposition', 'attachment', filename=file_name)
-                  msg.attach(att)
-
-              try:
-                  response = ses.send_raw_email(
-                      Source=sender,
-                      Destinations=[recipient],
-                      RawMessage={'Data': msg.as_string()}
-                  )
-                  logger.info(f"Email sent! Message ID: {response['MessageId']}")
-              except Exception as e:
-                  logger.error(f"Error sending email: {str(e)}")
-
-          def lambda_handler(event, context):
-              logger.info("Starting SecurityHub findings collection")
-              
-              securityhub = boto3.client('securityhub')
-              end_time = datetime.utcnow()
-              start_time = end_time - timedelta(hours=FINDINGS_HOURS)
-              
-              filters = {
-                  'RecordState': [{'Value': 'ACTIVE', 'Comparison': 'EQUALS'}],
-                  'ComplianceStatus': [{'Value': 'FAILED', 'Comparison': 'EQUALS'}],
-                  'SeverityLabel': [
-                      {'Value': 'CRITICAL', 'Comparison': 'EQUALS'},
-                      {'Value': 'HIGH', 'Comparison': 'EQUALS'},
-                      {'Value': 'MEDIUM', 'Comparison': 'EQUALS'}
-                  ],
-                  'UpdatedAt': [
-                      {
-                          'Start': start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                          'End': end_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-                      }
-                  ]
-              }
-
-              try:
-                  paginator = securityhub.get_paginator('get_findings')
-                  findings_iterator = paginator.paginate(Filters=filters)
-                  
-                  all_findings = []
-                  for page in findings_iterator:
-                      all_findings.extend(page['Findings'])
-                  
-                  total_findings = len(all_findings)
-                  logger.info(f"Retrieved {total_findings} findings")
-                  
-                  if total_findings == 0:
-                      logger.info("No findings found")
-                      email_subject = f"SecurityHub Findings Summary - {datetime.now().strftime('%Y-%m-%d')}"
-                      email_body_text = "No critical, high, or medium severity findings with FAILED compliance status were found in the specified time period."
-                      email_body_html = f"<html><body><p>{email_body_text}</p></body></html>"
-                      
-                      send_email_with_attachment(
-                          SENDER_EMAIL,
-                          RECIPIENT_EMAIL,
-                          email_subject,
-                          email_body_text,
-                          email_body_html
-                      )
-                      
-                      return {
-                          'statusCode': 200,
-                          'body': json.dumps({
-                              'findings_count': 0,
-                              'summary': 'No findings found'
-                          })
-                      }
-                  
-                  formatted_findings = []
-                  for finding in all_findings:
-                      formatted_finding = {
-                          'AccountId': finding.get('AwsAccountId', 'N/A'),
-                          'Title': finding.get('Title', 'N/A'),
-                          'Description': finding.get('Description', 'N/A'),
-                          'Severity': finding.get('Severity', {}).get('Label', 'N/A'),
-                          'ResourceType': finding.get('Resources', [{}])[0].get('Type', 'N/A'),
-                          'ResourceId': finding.get('Resources', [{}])[0].get('Id', 'N/A'),
-                          'ComplianceStatus': finding.get('Compliance', {}).get('Status', 'N/A'),
-                          'RecordState': finding.get('RecordState', 'N/A'),
-                          'LastObservedAt': finding.get('LastObservedAt', 'N/A')
-                      }
-                      formatted_findings.append(formatted_finding)
-
-                  findings_summary = get_findings_summary(formatted_findings)
-                  summary_html = format_summary_html(findings_summary)
-                  summary_text = format_summary_text(findings_summary)
-                  ai_summary = summarize_findings(formatted_findings)
-
-                  csv_buffer = io.StringIO()
-                  csv_writer = csv.DictWriter(csv_buffer, fieldnames=formatted_findings[0].keys())
-                  csv_writer.writeheader()
-                  csv_writer.writerows(formatted_findings)
-                  csv_content = csv_buffer.getvalue()
-
-                  email_subject = f"SecurityHub Findings Summary - {datetime.now().strftime('%Y-%m-%d')}"
-                  file_name = f'securityhub_findings_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-
-                  email_body_text = f"""
-                  SecurityHub Findings Summary
-                  {summary_text}
-                  AI-Generated Security Hub Findings Summary:
-                  {ai_summary}
-                  Please find the detailed findings in the attached CSV file.
-                  """
-
-                  email_body_html = f"""
-                  <html>
-                  <body>
-                  {summary_html}
-                  <h3>AI-Generated Security Hub Findings Summary:</h3>
-                  <p>{ai_summary.replace(chr(10), '<br>')}</p>
-                  <p>Please find the detailed findings in the attached CSV file.</p>
-                  <p><i>Disclaimer: The Security Hub Findings Summary above is AI-Generated using Amazon Bedrock.</i></p>
-                  </body>
-                  </html>
-                  """
-
-                  send_email_with_attachment(
-                      SENDER_EMAIL,
-                      RECIPIENT_EMAIL,
-                      email_subject,
-                      email_body_text,
-                      email_body_html,
-                      csv_content,
-                      file_name
-                  )
-
-                  return {
-                      'statusCode': 200,
-                      'body': json.dumps({
-                          'findings_count': total_findings,
-                          'summary': ai_summary
-                      }, default=str)
-                  }
-
-              except Exception as e:
-                  logger.error(f"Error processing findings: {str(e)}")
-                  raise
-
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -299,7 +46,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - securityhub:GetFindings
-                Resource: !Sub 'arn:aws:securityhub:${AWS::Region}:${AWS::AccountId}:hub/default'
+                Resource: '*'
         - PolicyName: SESAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -308,7 +55,7 @@ Resources:
                 Action:
                   - ses:SendEmail
                   - ses:SendRawEmail
-                Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SenderEmail}'
+                Resource: '*'
         - PolicyName: BedrockAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -316,22 +63,48 @@ Resources:
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
-                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0'
+                Resource: '*'
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${LambdaCodeBucket}/${LambdaCodeKey}'
+
+  FindingsAnalyzerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code: 
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
+      Runtime: python3.12
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          SENDER_EMAIL: !Ref SenderEmail
+          RECIPIENT_EMAIL: !Ref RecipientEmail
+          BEDROCK_MODEL_ID: 'anthropic.claude-3-sonnet-20240229-v1:0'
+          FINDINGS_HOURS: !Ref FindingsHours
 
   EventRule:
     Type: AWS::Events::Rule
     Properties:
-      Description: "Trigger SecurityHub findings summary Lambda function at 11 AM IST (5:30 AM UTC) Monday-Friday"
-      ScheduleExpression: "cron(30 5 ? * MON-FRI *)"
+      Description: "Schedule for SecurityHub Findings Analysis"
+      ScheduleExpression: "cron(0 8 * * ? *)"  # Runs daily at 8 AM UTC
       State: ENABLED
       Targets:
-        - Arn: !GetAtt SecurityHubFindingsFunction.Arn
-          Id: SecurityHubFindingsTarget
+        - Arn: !GetAtt FindingsAnalyzerFunction.Arn
+          Id: "SecurityHubFindingsAnalyzer"
 
-  LambdaPermission:
+  EventRulePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref SecurityHubFindingsFunction
+      FunctionName: !Ref FindingsAnalyzerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt EventRule.Arn
@@ -339,12 +112,8 @@ Resources:
 Outputs:
   LambdaFunctionArn:
     Description: ARN of the Lambda function
-    Value: !GetAtt SecurityHubFindingsFunction.Arn
+    Value: !GetAtt FindingsAnalyzerFunction.Arn
 
   LambdaRoleArn:
     Description: ARN of the Lambda execution role
     Value: !GetAtt LambdaExecutionRole.Arn
-
-  EventRuleArn:
-    Description: ARN of the EventBridge rule
-    Value: !GetAtt EventRule.Arn

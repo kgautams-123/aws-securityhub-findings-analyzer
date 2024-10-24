@@ -1,98 +1,146 @@
-# AWS SecurityHub Findings Summarizer with AI-Powered Analysis
+# README.md
 
-## Overview
-This solution automates the collection and analysis of AWS SecurityHub findings using Amazon Bedrock's Claude 3 Sonnet model. It generates daily email reports containing AI-powered analysis of security findings, helping security teams quickly understand and respond to security issues across AWS accounts.
+## AWS Security Hub Findings Summarizer with AI-Powered Analysis
 
-## Features
-- **Automated Daily Reports**: Scheduled for Monday-Friday at 11 AM IST (5:30 AM UTC)
-- **AI-Powered Analysis**: Leverages Claude 3 Sonnet for intelligent finding summarization
-- **Comprehensive Reporting**: 
-  - HTML formatted email summary
-  - Plain text alternative
-  - Detailed CSV attachment
-- **Finding Classification**: Organizes findings by severity (CRITICAL, HIGH, MEDIUM)
-- **Multi-Account Support**: Aggregates findings across AWS accounts
+### Overview
 
-## Architecture Components
-- **AWS Lambda**: Python 3.12 runtime for findings processing
-- **Amazon EventBridge**: Scheduled trigger for the Lambda function
-- **Amazon Bedrock**: AI-powered analysis using Claude 3 Sonnet
-- **Amazon SES**: Email delivery service
-- **AWS SecurityHub**: Security findings source
+The **AWS Security Hub Findings Summarizer** automates the collection and analysis of AWS Security Hub findings using Amazon Bedrock's Claude 3 Sonnet model. This solution provides daily email reports with AI-generated insights, helping security teams quickly understand their security posture across AWS accounts.
 
-## Prerequisites
-1. **AWS Account Access**
-   - SecurityHub enabled
-   - SES in production mode
-   - Bedrock access configured
-   - Appropriate IAM permissions
+### Key Features
 
-2. **Email Configuration**
-   - Verified SES sender email
-   - Verified SES recipient email
+- **Automated Daily Reports**: Runs Monday-Friday at 11 AM IST (5:30 AM UTC).
+- **AI-Powered Analysis**: Utilizes Claude 3 Sonnet for intelligent finding summarization.
+- **Multi-Account Support**: Aggregates findings across multiple AWS accounts.
+- **Severity-Based Classification**: Categorizes findings by CRITICAL, HIGH, and MEDIUM severity levels.
+- **Detailed CSV Reports**: Includes comprehensive finding details for further analysis.
+- **HTML/Text Email Format**: Provides both HTML and plain text email formats.
 
-## Deployment Instructions
+### Architecture Details
 
-### Using AWS Console
-1. **Access CloudFormation**
-   - Log into AWS Console
-   - Navigate to CloudFormation service
+![Architecture Diagram]
 
-2. **Create Stack**
-   - Click "Create stack" (with new resources)
-   - Choose "Upload a template file"
-   - Upload the provided template.yml
+#### Components
 
-3. **Configure Stack**
-   - Stack name: `security-hub-summarizer` (or preferred name)
-   - Parameters:
-     - SenderEmail: Verified SES sender address
-     - RecipientEmail: Verified SES recipient address
-     - FindingsHours: Lookback period (default: 24)
+1. **AWS Lambda**
+   - **Runtime**: Python 3.12
+   - **Memory**: 256MB
+   - **Timeout**: 300 seconds
+   - **Environment Variables**:
+     - `SENDER_EMAIL`
+     - `RECIPIENT_EMAIL`
+     - `BEDROCK_MODEL_ID`
+     - `FINDINGS_HOURS`
 
-4. **Review and Create**
-   - Review configuration
-   - Acknowledge IAM resource creation
-   - Click "Create stack"
+2. **Amazon EventBridge**
+   - **Schedule**: `cron(30 5 ? * MON-FRI *)`
+   - Triggers the Lambda function daily.
 
-### Using AWS CLI
-```bash
-aws cloudformation create-stack \
-  --stack-name security-hub-summarizer \
-  --template-body file://template.yml \
-  --capabilities CAPABILITY_IAM \
-  --parameters \
-    ParameterKey=SenderEmail,ParameterValue=sender@example.com \
-    ParameterKey=RecipientEmail,ParameterValue=recipient@example.com \
-    ParameterKey=FindingsHours,ParameterValue=24
-```
+3. **Amazon Bedrock**
+   - **Model**: Claude 3 Sonnet
+   - Used for AI analysis of findings.
 
-## Email Report Format
+4. **Amazon SES**
+   - Handles email delivery.
+   - Supports attachments and HTML formatting.
 
-### Summary Table
-```
-| Account ID | Critical | High | Medium | Total |
-|------------|----------|------|--------|-------|
-| 123456789  |    5     |  10  |   15   |  30   |
-| Total      |    5     |  10  |   15   |  30   |
-```
+5. **AWS Security Hub**
+   - Source of security findings.
+   - Filtered for FAILED compliance status.
 
-### Report Components
-1. Statistical Summary
-2. AI-Generated Analysis
-3. Detailed CSV Attachment
-4. Bedrock Analysis Disclaimer
+### Prerequisites
 
+#### AWS Services
 
-## Disclaimer
-The security findings summary is AI-generated using Amazon Bedrock based on SecurityHub findings. Review all findings and take appropriate action based on your security requirements.
+1. **SecurityHub**
+   - Must be enabled in all monitored regions.
+   - Security standards enabled as needed.
 
----
+2. **Amazon SES**
+   - Production access required.
+   - Verified sender and recipient email addresses.
+   - Appropriate sending limits.
 
-**Note**: Replace placeholder email addresses with actual verified SES addresses before deployment.
+3. **Amazon Bedrock**
+   - Access to the Claude 3 Sonnet model.
+   - Appropriate model invocation limits.
 
-For questions or issues, please open a GitHub issue or contact your AWS account team.
+4. **IAM Permissions**
+   - SecurityHub read access.
+   - SES send email permissions.
+   - Bedrock model invocation rights.
+   - CloudWatch Logs access.
+
+### Deployment Instructions Using AWS Console
+
+#### Step 1: Prepare Lambda Code
+
+1. **Create a Zip File**:
+   Navigate to the directory where your `index.py` file is located and create a zip file:
+   ```bash
+   zip lambda_function.zip index.py
+   ```
+
+#### Step 2: Upload Lambda Code to S3
+
+1. Access the **AWS Management Console**.
+2. Navigate to **S3**.
+3. Create a new bucket (or use an existing one) where you will store the Lambda function code.
+4. Upload the `lambda_function.zip` file to your S3 bucket.
+
+#### Step 3: Prepare CloudFormation Template
+
+1. Download the CloudFormation template file (`aws-securityhub-findings-analyzer.yml`) from [here](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/9bfd2685-6a18-49d0-8791-2a535d55cbb6/aws-securityhub-findings-analyzer.yml).
+2. Ensure that your template includes parameters for `LambdaCodeBucket` and `LambdaCodeKey`.
+
+#### Step 4: Create CloudFormation Stack
+
+1. Navigate back to **CloudFormation** in the AWS Management Console.
+2. Click on **Create Stack** and choose **With new resources (standard)**.
+3. Under **Specify template**, select **Upload a template file**.
+4. Upload the modified `aws-securityhub-findings-analyzer.yml` file.
+
+#### Step 5: Configure Stack Parameters
+
+1. Enter a **Stack name** (e.g., `SecurityHubFindingsAnalyzer`).
+2. Provide the necessary parameters:
+   - **LambdaCodeBucket**: Your S3 bucket name where the zip file is stored.
+   - **LambdaCodeKey**: The key (path) for your uploaded zip file (e.g., `lambda_function.zip`).
+   - `SENDER_EMAIL`: Your sender email address for SES.
+   - `RECIPIENT_EMAIL`: Your recipient email address for SES.
+   - `BEDROCK_MODEL_ID`: The model ID for Amazon Bedrock.
+   - `FINDINGS_HOURS`: Specify how many hours back to look for findings (e.g., `24`).
+
+#### Step 6: Review and Create Stack
+
+1. Review the configuration and ensure all parameters are correct.
+2. Check the box to acknowledge that AWS CloudFormation might create IAM resources.
+3. Click on **Create stack**.
+
+#### Step 7: Monitor Stack Creation
+
+1. Monitor the stack creation process in the CloudFormation console.
+2. Wait until the stack status changes to **CREATE_COMPLETE**.
+
+#### Step 8: Set Up EventBridge Rule (Optional)
+
+To automate execution of your Lambda function:
+
+1. Modify your CloudFormation template to include an EventBridge rule that triggers your Lambda function at a specified interval (e.g., daily).
+2. Ensure that you include permissions for EventBridge to invoke your Lambda function.
+
+#### Step 9: Execute the Lambda Function
+
+Once deployed, you can manually invoke the Lambda function or let EventBridge trigger it:
+
+1. **Manually Run the Function**:
+   Go to the AWS Lambda console, select your deployed function, and click on **Test** to execute it.
+
+### Disclaimer
+
+This solution is provided as-is without any warranties or guarantees of performance or reliability. Users should thoroughly test this solution in their own environments before deploying it in production settings. It is recommended to review AWS best practices regarding security configurations, IAM permissions, and resource management.
+
+By following this README, you can successfully deploy and utilize the AWS Security Hub Findings Summarizer in your AWS environment, enhancing your organization's ability to monitor and respond to security threats effectively.
 
 Citations:
-[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/8d5c55a2-5f27-4ac0-9ba9-fa4cb2421f94/Securityhub_24hours_bedrock.yml
-[2] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/dc24e007-1e35-4f0f-a7ef-4939c3a1e9b4/securityhub_24hours_bedrock.py
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/9bfd2685-6a18-49d0-8791-2a535d55cbb6/aws-securityhub-findings-analyzer.yml
+[2] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/651bcd9a-7bc6-4828-aebc-09b8ba9fcc98/index.py

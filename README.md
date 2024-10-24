@@ -84,7 +84,7 @@ This solution automates the collection and analysis of AWS SecurityHub findings 
    ```bash
    aws cloudformation create-stack \
      --stack-name security-hub-summarizer \
-     --template-body file://template.yml \
+     --template-body file://aws-securityhub-findings-analyzer.yml \
      --capabilities CAPABILITY_IAM \
      --parameters \
        ParameterKey=SenderEmail,ParameterValue=sender@example.com \

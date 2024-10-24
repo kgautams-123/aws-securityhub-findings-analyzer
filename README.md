@@ -70,7 +70,7 @@ This solution automates the collection and analysis of AWS SecurityHub findings 
 
 1. **Prepare Environment**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/kgautams-123/aws-securityhub-findings-analyzer.git
    cd security-hub-summarizer
    ```
 

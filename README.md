@@ -71,7 +71,7 @@ This solution automates the collection and analysis of AWS SecurityHub findings 
 1. **Prepare Environment**
    ```bash
    git clone https://github.com/kgautams-123/aws-securityhub-findings-analyzer.git
-   cd security-hub-summarizer
+   cd aws-securityhub-findings-analyzer
    ```
 
 2. **Verify SES Email Addresses**
@@ -86,6 +86,7 @@ This solution automates the collection and analysis of AWS SecurityHub findings 
      --stack-name security-hub-summarizer \
      --template-body file://aws-securityhub-findings-analyzer.yml \
      --capabilities CAPABILITY_IAM \
+     --region "ap-south-1"
      --parameters \
        ParameterKey=SenderEmail,ParameterValue=sender@example.com \
        ParameterKey=RecipientEmail,ParameterValue=recipient@example.com \

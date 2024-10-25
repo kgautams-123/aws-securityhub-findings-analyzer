@@ -318,13 +318,13 @@ def lambda_handler(event, context):
                 <div style='display: flex; gap: 20px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;'>
                     <div style='background-color: #f8f9fa; padding: 15px; border-radius: 6px; flex: 1;'>
                         <p style='margin: 0; color: #666;'>
-                            <span style='color: #3498db; font-size: 1.2em; margin-right: 8px;'>📎</span>
+                            <span style='color: #3498db; font-size: 1.2em; margin-right: 8px;'></span>
                             <strong>Detailed Findings:</strong> Available in the attached CSV file
                         </p>
                     </div>
                     <div style='background-color: #f8f9fa; padding: 15px; border-radius: 6px; flex: 1;'>
                         <p style='margin: 0; color: #666;'>
-                            <span style='color: #3498db; font-size: 1.2em; margin-right: 8px;'>🤖</span>
+                            <span style='color: #3498db; font-size: 1.2em; margin-right: 8px;'></span>
                             <strong>Analysis:</strong> Generated using Amazon Bedrock
                         </p>
                     </div>

@@ -141,6 +141,4 @@ This solution is provided as-is without any warranties or guarantees of performa
 
 By following this README, you can successfully deploy and utilize the AWS Security Hub Findings Summarizer in your AWS environment, enhancing your organization's ability to monitor and respond to security threats effectively.
 
-Citations:
-[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/9bfd2685-6a18-49d0-8791-2a535d55cbb6/aws-securityhub-findings-analyzer.yml
-[2] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/651bcd9a-7bc6-4828-aebc-09b8ba9fcc98/index.py
+

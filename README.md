@@ -33,7 +33,7 @@ The **AWS Security Hub Findings Summarizer** automates the collection and analys
 
 2. **Amazon EventBridge**
    - **Schedule**: `cron(30 5 ? * MON-FRI *)`
-   - Triggers the Lambda function daily.
+   - Triggers the Lambda function mon-fri.
 
 3. **Amazon Bedrock**
    - **Model**: Claude 3 Sonnet

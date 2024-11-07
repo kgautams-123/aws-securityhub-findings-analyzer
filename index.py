@@ -273,7 +273,7 @@ def lambda_handler(event, context):
         {summary_text}
         AI-Generated Security Hub Findings Summary (All Critical and Top 10 High Severity):
         {ai_summary}
-        Please find the detailed findings in the attached CSV file.
+        Please find the detailed findings in the attached CSV file. Please review all recommendations carefully before implementation.
         """
 
         email_body_html = f"""

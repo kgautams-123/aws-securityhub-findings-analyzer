@@ -89,7 +89,7 @@ The **AWS Security Hub Findings Summarizer** automates the collection and analys
 
 #### Step 3: Prepare CloudFormation Template
 
-1. Download the CloudFormation template file (`aws-securityhub-findings-analyzer.yml`) from [here](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/31009598/9bfd2685-6a18-49d0-8791-2a535d55cbb6/aws-securityhub-findings-analyzer.yml).
+1. Download the CloudFormation template file (`aws-securityhub-findings-analyzer.yml`)
 2. Ensure that your template includes parameters for `LambdaCodeBucket` and `LambdaCodeKey`.
 
 #### Step 4: Create CloudFormation Stack

@@ -17,7 +17,7 @@ The **AWS Security Hub Findings Summarizer** automates the collection and analys
 
 ### Architecture Details
 
-![Architecture Diagram]
+![Architecture Diagram](Architecture.png)
 
 #### Components
 

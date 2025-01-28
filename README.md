@@ -8,7 +8,7 @@ The **AWS Security Hub Findings Summarizer** automates the collection and analys
 
 ### Key Features
 
-- **Automated Daily Reports**: Runs Monday-Friday at 11 AM IST (5:30 AM UTC).
+- **Automated Daily Reports**: Runs Monday-Friday at 11 AM IST (5:30 AM UTC). This is configurable.
 - **AI-Powered Analysis**: Utilizes Claude 3 Sonnet for intelligent finding summarization.
 - **Multi-Account Support**: Aggregates findings across multiple AWS accounts.
 - **Severity-Based Classification**: Categorizes findings by CRITICAL, HIGH, and MEDIUM severity levels.

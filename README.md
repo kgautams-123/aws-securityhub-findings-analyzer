@@ -139,6 +139,5 @@ Once deployed, you can manually invoke the Lambda function or let EventBridge tr
 
 This solution is provided as-is without any warranties or guarantees of performance or reliability. Users should thoroughly test this solution in their own environments before deploying it in production settings. It is recommended to review AWS best practices regarding security configurations, IAM permissions, and resource management.
 
-By following this README, you can successfully deploy and utilize the AWS Security Hub Findings Summarizer in your AWS environment, enhancing your organization's ability to monitor and respond to security threats effectively.
 
 
